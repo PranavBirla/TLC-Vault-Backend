@@ -6,7 +6,7 @@ const cookieParser = require("cookie-parser");
 const connectDB = require("./src/db/db");
 const authRoutes = require("./src/routes/auth.routes");
 const repositoryRoutes = require("./src/routes/repository.routes");
-const codeFileRoutes = require("./src/routes/codeFile.routes");
+const codeFileRoutes = require("./src/routes/codefile.routes");
 const cors = require("cors");
 
 const app = express();
