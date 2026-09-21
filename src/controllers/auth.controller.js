@@ -132,9 +132,9 @@ const login = async (req, res) => {
 
     res.cookie("tlc_session", token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: SESSION_DURATION,
+      // secure: process.env.NODE_ENV === "production",
+      secure: true, 
+      sameSite: "none",
     });
 
     res.json({
