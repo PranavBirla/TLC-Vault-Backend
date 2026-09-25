@@ -34,7 +34,7 @@ const authMiddleware = async (req, res, next) => {
 
     // Find the user associated with the session
     const user = await User.findById(session.userId).select(
-      "_id name email"
+      "_id name email role"
     );
 
     if (!user) {

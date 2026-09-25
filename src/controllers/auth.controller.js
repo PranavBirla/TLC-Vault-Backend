@@ -121,6 +121,10 @@ const login = async (req, res) => {
       });
     }
 
+    user.lastLoginAt = new Date();
+    await user.save();
+
+
     const token = generateSessionToken();
 
     await Session.create({
@@ -133,7 +137,7 @@ const login = async (req, res) => {
     res.cookie("tlc_session", token, {
       httpOnly: true,
       // secure: process.env.NODE_ENV === "production",
-      secure: true, 
+      secure: true,
       sameSite: "none",
     });
 
@@ -143,6 +147,7 @@ const login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
     });
   } catch (error) {
