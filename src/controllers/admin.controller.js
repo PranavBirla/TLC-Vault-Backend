@@ -91,10 +91,10 @@ const getAdminUsers = async (req, res) => {
     if (requestedLimit !== "all") {
       const limit = Number.parseInt(requestedLimit, 10);
 
-      if (![30, 60].includes(limit)) {
+      if (!Number.isInteger(limit) || limit < 1) {
         return res.status(400).json({
           success: false,
-          message: "Limit must be 30, 60, or all",
+          message: "Limit must be a positive number or all",
         });
       }
 
