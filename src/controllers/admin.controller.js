@@ -124,24 +124,43 @@ const getAdminUsers = async (req, res) => {
 
 const getAdminRepositories = async (req, res) => {
   try {
-    const limit = Math.min(
-      Math.max(parseInt(req.query.limit) || 20, 1),
-      100
-    );
+    const requestedLimit = req.query.limit || "30";
 
-    const repositories = await Repository.find()
+    let repositoriesQuery = Repository.find()
       .select("_id name description userId createdAt updatedAt")
       .populate("userId", "_id name email")
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+      .sort({ createdAt: -1 });
+
+    if (requestedLimit !== "all") {
+      const limit = Number.parseInt(requestedLimit, 10);
+
+      if (!Number.isInteger(limit) || limit < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be a positive number or all",
+        });
+      }
+
+      repositoriesQuery = repositoriesQuery.limit(limit);
+    }
+
+    const [repositories, totalRepositories] =
+      await Promise.all([
+        repositoriesQuery.lean(),
+        Repository.countDocuments(),
+      ]);
 
     return res.status(200).json({
       success: true,
       repositories,
+      totalRepositories,
+      showing: repositories.length,
     });
   } catch (error) {
-    console.error("Admin repositories error:", error);
+    console.error(
+      "Admin repositories error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
