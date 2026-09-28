@@ -81,30 +81,45 @@ const getAdminStats = async (req, res) => {
 };
 
 const getAdminUsers = async (req, res) => {
-    try {
-        const limit = Math.min(
-            Math.max(parseInt(req.query.limit) || 20, 1),
-            100
-        );
+  try {
+    const requestedLimit = req.query.limit || "30";
 
-        const users = await User.find()
-            .select("_id name email role createdAt lastLoginAt")
-            .sort({ createdAt: -1 })
-            .limit(limit)
-            .lean();
+    let usersQuery = User.find()
+      .select("_id name email role createdAt lastLoginAt")
+      .sort({ createdAt: -1 });
 
-        return res.status(200).json({
-            success: true,
-            users,
+    if (requestedLimit !== "all") {
+      const limit = Number.parseInt(requestedLimit, 10);
+
+      if (![30, 60].includes(limit)) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be 30, 60, or all",
         });
-    } catch (error) {
-        console.error("Admin users error:", error);
+      }
 
-        return res.status(500).json({
-            success: false,
-            message: "Failed to fetch users",
-        });
+      usersQuery = usersQuery.limit(limit);
     }
+
+    const [users, totalUsers] = await Promise.all([
+      usersQuery.lean(),
+      User.countDocuments(),
+    ]);
+
+    return res.status(200).json({
+      success: true,
+      users,
+      totalUsers,
+      showing: users.length,
+    });
+  } catch (error) {
+    console.error("Admin users error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch users",
+    });
+  }
 };
 
 const getAdminRepositories = async (req, res) => {
