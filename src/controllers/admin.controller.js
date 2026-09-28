@@ -171,27 +171,46 @@ const getAdminRepositories = async (req, res) => {
 
 const getAdminCodeFiles = async (req, res) => {
   try {
-    const limit = Math.min(
-      Math.max(parseInt(req.query.limit) || 20, 1),
-      100
-    );
+    const requestedLimit = req.query.limit || "30";
 
-    const codeFiles = await CodeFile.find()
+    let codeFilesQuery = CodeFile.find()
       .select(
         "_id name language description repositoryId userId createdAt updatedAt"
       )
       .populate("userId", "_id name email")
       .populate("repositoryId", "_id name")
-      .sort({ createdAt: -1 })
-      .limit(limit)
-      .lean();
+      .sort({ createdAt: -1 });
+
+    if (requestedLimit !== "all") {
+      const limit = Number.parseInt(requestedLimit, 10);
+
+      if (!Number.isInteger(limit) || limit < 1) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be a positive number or all",
+        });
+      }
+
+      codeFilesQuery = codeFilesQuery.limit(limit);
+    }
+
+    const [codeFiles, totalCodeFiles] =
+      await Promise.all([
+        codeFilesQuery.lean(),
+        CodeFile.countDocuments(),
+      ]);
 
     return res.status(200).json({
       success: true,
       codeFiles,
+      totalCodeFiles,
+      showing: codeFiles.length,
     });
   } catch (error) {
-    console.error("Admin code files error:", error);
+    console.error(
+      "Admin code files error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
