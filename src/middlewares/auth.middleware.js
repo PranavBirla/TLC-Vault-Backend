@@ -34,13 +34,21 @@ const authMiddleware = async (req, res, next) => {
 
     // Find the user associated with the session
     const user = await User.findById(session.userId).select(
-      "_id name email role"
+      "_id name email role emailVerified"
     );
 
     if (!user) {
       return res.status(401).json({
         success: false,
         message: "User not found",
+      });
+    }
+
+    if (user.emailVerified === false) {
+      return res.status(403).json({
+        success: false,
+        code: "EMAIL_NOT_VERIFIED",
+        message: "Please verify your email before accessing TLC Vault.",
       });
     }
 

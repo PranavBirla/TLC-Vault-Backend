@@ -29,6 +29,26 @@ const userSchema = new mongoose.Schema(
       default: "user",
     },
 
+    emailVerified: {
+      type: Boolean,
+      default: true,
+    },
+
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+
+    emailVerificationTokenHash: {
+      type: String,
+      default: null,
+    },
+
+    emailVerificationExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
     lastLoginAt: {
       type: Date,
       default: null,
