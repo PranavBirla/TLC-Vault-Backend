@@ -8,6 +8,7 @@ const authRoutes = require("./src/routes/auth.routes");
 const repositoryRoutes = require("./src/routes/repository.routes");
 const codeFileRoutes = require("./src/routes/codefile.routes");
 const adminRoutes = require("./src/routes/admin.routes");
+const dashboardRoutes = require("./src/routes/dashboard.routes");
 const cors = require("cors");
 
 const app = express();
@@ -39,6 +40,8 @@ app.use("/api/auth", authRoutes);
 app.use("/api/repositories", repositoryRoutes);
 app.use("/api", codeFileRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+
 app.get("/", (req, res) => {
   res.json({
     message: "TLC Backend is running",
