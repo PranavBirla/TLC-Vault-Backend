@@ -2,6 +2,7 @@ const mongoose = require("mongoose");
 const ActivityDay = require("../models/activityDay.model");
 const { getISTDate } = require("../utils/istDate");
 const { updateStreak } = require("./streak.service");
+const { awardEligibleBadges, } = require("./badge.service");
 
 const recordActivity = async (userId) => {
   if (!mongoose.isValidObjectId(userId)) {
@@ -25,16 +26,18 @@ const recordActivity = async (userId) => {
           activityDate,
           firstActivityAt: now,
         },
+
         $set: {
           lastActivityAt: now,
         },
+
         $inc: {
           activityCount: 1,
         },
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: "after",
         runValidators: true,
       }
     );
@@ -44,6 +47,33 @@ const recordActivity = async (userId) => {
     activityDate
   );
 
+  let newlyUnlockedBadges = [];
+
+  /*
+   * Badge awarding is intentionally best-effort.
+   *
+   * A badge failure must never break the user's
+   * code-saving or activity-recording operation.
+   */
+
+  try {
+    newlyUnlockedBadges =
+      await awardEligibleBadges(
+        userId,
+        {
+          totalActiveDays:
+            streak.totalActiveDays,
+          longestStreak:
+            streak.longestStreak,
+        }
+      );
+  } catch (badgeError) {
+    console.error(
+      "Award badges after activity error:",
+      badgeError
+    );
+  }
+
   return {
     id: activityDay._id,
     activityDate: activityDay.activityDate,
@@ -51,6 +81,7 @@ const recordActivity = async (userId) => {
     firstActivityAt: activityDay.firstActivityAt,
     lastActivityAt: activityDay.lastActivityAt,
     streak,
+    newlyUnlockedBadges,
   };
 };
 

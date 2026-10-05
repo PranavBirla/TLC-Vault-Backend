@@ -55,16 +55,20 @@ const createCodeFile = async (req, res) => {
       description: description?.trim() || "",
     });
 
+    let activityResult = {
+      newlyUnlockedBadges: [],
+    };
 
     /*
      * Record meaningful user activity.
      *
-     * Activity tracking is intentionally treated as a
-     * secondary operation. If it fails, the successful
-     * code-file creation must not be rolled back.
+     * Activity tracking is secondary. If it fails,
+     * the successful code-file creation must not fail.
      */
     try {
-      await recordActivity(req.user._id);
+      activityResult = await recordActivity(
+        req.user._id
+      );
     } catch (activityError) {
       console.error(
         "Record activity after code file creation error:",
@@ -72,11 +76,12 @@ const createCodeFile = async (req, res) => {
       );
     }
 
-
     return res.status(201).json({
       success: true,
       message: "Code file created successfully",
       codeFile,
+      newlyUnlockedBadges:
+        activityResult.newlyUnlockedBadges,
     });
 
   } catch (error) {
@@ -244,18 +249,23 @@ const updateCodeFile = async (req, res) => {
      * Apart from avoiding unnecessary database work, this
      * keeps updatedAt meaningful for the dashboard.
      */
+    let activityResult = {
+      newlyUnlockedBadges: [],
+    };
+
     if (hasChanges) {
       await codeFile.save();
-
 
       /*
        * The core operation succeeded.
        *
-       * Activity tracking is secondary. If it fails, the
-       * user's successfully saved code must remain intact.
+       * Activity tracking and badge awarding are secondary.
+       * If they fail, the successfully saved code must remain intact.
        */
       try {
-        await recordActivity(req.user._id);
+        activityResult = await recordActivity(
+          req.user._id
+        );
       } catch (activityError) {
         console.error(
           "Record activity after code file update error:",
@@ -264,13 +274,14 @@ const updateCodeFile = async (req, res) => {
       }
     }
 
-
     return res.status(200).json({
       success: true,
       message: hasChanges
         ? "Code file updated successfully"
         : "No changes detected",
       codeFile,
+      newlyUnlockedBadges:
+        activityResult.newlyUnlockedBadges,
     });
 
   } catch (error) {
