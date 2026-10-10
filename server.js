@@ -18,6 +18,7 @@ connectDB();
 
 const allowedOrigins = [
   process.env.FRONTEND_URL,
+  "https://vault.thelastcommit.xyz",
   "http://localhost:5173",
 ];
 
