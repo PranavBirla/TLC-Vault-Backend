@@ -1,7 +1,7 @@
 const BADGE_DEFINITIONS = [
   {
-    key: "boot_sequence",
-    name: "Boot Sequence",
+    key: "booted",
+    name: "BOOTED",
 
     description:
       "Complete your first meaningful coding day in TLC Vault.",
@@ -19,8 +19,8 @@ const BADGE_DEFINITIONS = [
   },
 
   {
-    key: "loop_locked",
-    name: "Loop Locked",
+    key: "looped",
+    name: "LOOPED",
 
     description:
       "Maintain a 3-day coding streak.",
@@ -38,8 +38,8 @@ const BADGE_DEFINITIONS = [
   },
 
   {
-    key: "steady_commit",
-    name: "Steady Commit",
+    key: "commited",
+    name: "COMMITED",
 
     description:
       "Reach 10 different active coding days.",
@@ -57,8 +57,8 @@ const BADGE_DEFINITIONS = [
   },
 
   {
-    key: "persistent_process",
-    name: "Persistent Process",
+    key: "persistent",
+    name: "PERSISTENT",
 
     description:
       "Maintain a 7-day coding streak.",
@@ -77,7 +77,7 @@ const BADGE_DEFINITIONS = [
 
   {
     key: "vaultbound",
-    name: "Vaultbound",
+    name: "VAULTBOUND",
 
     description:
       "Reach 30 different active coding days.",
@@ -95,8 +95,8 @@ const BADGE_DEFINITIONS = [
   },
 
   {
-    key: "unbroken_chain",
-    name: "Unbroken Chain",
+    key: "unbroken",
+    name: "UNBROKEN",
 
     description:
       "Maintain a 14-day coding streak.",
