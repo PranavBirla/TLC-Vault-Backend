@@ -10,7 +10,7 @@ const codeFileRoutes = require("./src/routes/codefile.routes");
 const adminRoutes = require("./src/routes/admin.routes");
 const dashboardRoutes = require("./src/routes/dashboard.routes");
 const badgeRoutes = require("./src/routes/badge.routes");
-const feedbackRoutes = require("./routes/feedback.routes");
+const feedbackRoutes = require("./src/routes/feedback.routes");
 const cors = require("cors");
 
 const app = express();
