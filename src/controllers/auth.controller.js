@@ -5,11 +5,12 @@ const User = require("../models/user.model");
 const Session = require("../models/session.model");
 
 const { generateSessionToken, hashToken } = require("../utils/session");
-const { sendVerificationEmail } = require("../services/email.service");
+const { sendVerificationEmail,sendPasswordResetEmail, } = require("../services/email.service");
 
 const SESSION_DURATION = 1000 * 60 * 60 * 4; // 4 hours
 const VERIFICATION_EXPIRY = 1000 * 60 * 30; // 30 minutes
 const RESEND_COOLDOWN = 1000 * 30; // 30 seconds
+const PASSWORD_RESET_EXPIRY = 1000 * 60 * 30; // 30 minutes
 
 const createSession = async (req, user, res) => {
   const token = generateSessionToken();
@@ -342,6 +343,168 @@ const resendVerification = async (req, res) => {
 };
 
 
+// FORGOT PASSWORD
+const forgotPassword = async (req, res) => {
+  const genericResponse = {
+    message:
+      "If an account exists with that email, a password reset link will be sent.",
+  };
+
+  try {
+    const { email } = req.body;
+
+    if (!email || typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        message: "Please enter a valid email address.",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const user = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    // Do not reveal whether an account exists.
+    if (!user) {
+      return res.status(200).json(genericResponse);
+    }
+
+    // Generate a cryptographically secure token.
+    const rawToken = crypto.randomBytes(32).toString("hex");
+
+    // Store only its hash in MongoDB.
+    user.passwordResetTokenHash = hashToken(rawToken);
+    user.passwordResetExpiresAt = new Date(
+      Date.now() + PASSWORD_RESET_EXPIRY
+    );
+
+    await user.save();
+
+    try {
+      await sendPasswordResetEmail({
+        name: user.name,
+        email: user.email,
+        token: rawToken,
+      });
+    } catch (emailError) {
+      console.error("Password reset email error:", emailError);
+
+      // Invalidate the token if the email could not be sent.
+      user.passwordResetTokenHash = null;
+      user.passwordResetExpiresAt = null;
+
+      await user.save();
+    }
+
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+};
+
+
+// RESET PASSWORD
+const resetPassword = async (req, res) => {
+  try {
+    const { token, password } = req.body;
+
+    if (
+      typeof token !== "string" ||
+      !token ||
+      typeof password !== "string" ||
+      !password
+    ) {
+      return res.status(400).json({
+        code: "INVALID_RESET_REQUEST",
+        message: "A reset token and new password are required.",
+      });
+    }
+
+    if (password.length < 8) {
+      return res.status(400).json({
+        message: "Password must be at least 8 characters.",
+      });
+    }
+
+    // Hash the token to match the value stored in MongoDB.
+    const tokenHash = hashToken(token);
+    const now = new Date();
+
+    // Find a user with a valid, unexpired reset token.
+    const user = await User.findOne({
+      passwordResetTokenHash: tokenHash,
+      passwordResetExpiresAt: { $gt: now },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        code: "INVALID_OR_EXPIRED_RESET_TOKEN",
+        message:
+          "This password reset link is invalid or has expired. Please request a new one.",
+      });
+    }
+
+    // Hash the new password using the existing bcrypt configuration.
+    const passwordHash = await bcrypt.hash(password, 12);
+
+    // Update only if the token is still valid.
+    // This also prevents the same token from being reused.
+    const result = await User.updateOne(
+      {
+        _id: user._id,
+        passwordResetTokenHash: tokenHash,
+        passwordResetExpiresAt: { $gt: new Date() },
+      },
+      {
+        $set: {
+          passwordHash,
+          passwordResetTokenHash: null,
+          passwordResetExpiresAt: null,
+        },
+      }
+    );
+
+    if (result.modifiedCount !== 1) {
+      return res.status(400).json({
+        code: "INVALID_OR_EXPIRED_RESET_TOKEN",
+        message:
+          "This password reset link is invalid or has expired. Please request a new one.",
+      });
+    }
+
+    // Invalidate every existing session for this user.
+    await Session.deleteMany({
+      userId: user._id,
+    });
+
+    // Clear the current browser's session cookie as well.
+    res.clearCookie("tlc_session", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite:
+        process.env.NODE_ENV === "production" ? "none" : "lax",
+    });
+
+    return res.status(200).json({
+      success: true,
+      message:
+        "Password reset successfully. Please log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      message: "Something went wrong. Please try again later.",
+    });
+  }
+};
+
+
 // LOGOUT
 const logout = async (req, res) => {
   try {
@@ -396,6 +559,8 @@ module.exports = {
   login,
   verifyEmail,
   resendVerification,
+  forgotPassword,
+  resetPassword,
   logout,
   getMe,
 };

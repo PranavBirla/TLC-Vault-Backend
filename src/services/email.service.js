@@ -128,7 +128,92 @@ const sendVerificationEmail = async ({ name, email, token }) => {
   });
 };
 
+const sendPasswordResetEmail = async ({ name, email, token }) => {
+  const frontendUrl = getRequiredEnv("FRONTEND_URL").replace(/\/+$/, "");
+
+  const resetUrl =
+    `${frontendUrl}/reset-password?token=${encodeURIComponent(token)}`;
+
+  const safeName = escapeHtml(name);
+
+  return sendEmail({
+    to: email,
+    subject: "Reset your TLC Vault password",
+
+    text: [
+      `Hey ${name},`,
+      "",
+      "We received a request to reset your TLC Vault password.",
+      "",
+      `Reset your password: ${resetUrl}`,
+      "",
+      "This link expires in 30 minutes.",
+      "If you didn't request a password reset, you can ignore this email.",
+      "",
+      "TLC Vault",
+      "The Last Commit",
+    ].join("\n"),
+
+    html: `
+      <!doctype html>
+      <html>
+        <body style="margin:0;background:#f6f1e8;font-family:Arial,Helvetica,sans-serif;color:#111827;">
+          <div style="padding:40px 16px;">
+            <div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;">
+
+              <div style="padding:28px 32px;border-bottom:1px solid #eeeae2;">
+                <div style="font-size:18px;font-weight:700;letter-spacing:-0.02em;">
+                  TLC Vault
+                </div>
+                <div style="margin-top:5px;font-size:12px;color:#6b7280;">
+                  The Last Commit
+                </div>
+              </div>
+
+              <div style="padding:36px 32px;">
+                <div style="display:inline-block;padding:6px 9px;border-radius:6px;background:#fff0ea;color:#d94f1f;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;">
+                  Account security
+                </div>
+
+                <h1 style="margin:20px 0 12px;font-size:28px;line-height:1.15;letter-spacing:-.03em;">
+                  Reset your password
+                </h1>
+
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#4b5563;">
+                  Hey ${safeName},
+                </p>
+
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.7;color:#4b5563;">
+                  We received a request to reset your TLC Vault password.
+                  Click below to choose a new one.
+                </p>
+
+                <a
+                  href="${resetUrl}"
+                  style="display:inline-block;background:#f36631;color:#111827;text-decoration:none;font-size:14px;font-weight:700;padding:13px 20px;border-radius:7px;"
+                >
+                  Reset Password
+                </a>
+
+                <p style="margin:24px 0 0;font-size:12px;line-height:1.6;color:#6b7280;">
+                  This link expires in 30 minutes.
+                </p>
+
+                <p style="margin:18px 0 0;font-size:12px;line-height:1.6;color:#6b7280;">
+                  If you didn't request this reset, you can safely ignore this email.
+                  Your password will remain unchanged.
+                </p>
+              </div>
+            </div>
+          </div>
+        </body>
+      </html>
+    `,
+  });
+};
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
+  sendPasswordResetEmail,
 };
