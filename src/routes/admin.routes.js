@@ -5,7 +5,7 @@ const router = express.Router();
 const authMiddleware = require("../middlewares/auth.middleware");
 const adminMiddleware = require("../middlewares/admin.middleware");
 
-const { getAdminStats, getAdminUsers, getAdminRepositories, getAdminCodeFiles, getAdminAnalytics } = require("../controllers/admin.controller");
+const { getAdminStats, getAdminUsers, getAdminRepositories, getAdminCodeFiles, getAdminAnalytics, getAdminFeedback, updateFeedbackStatus } = require("../controllers/admin.controller");
 
 router.get(
   "/stats",
@@ -40,6 +40,20 @@ router.get(
   authMiddleware,
   adminMiddleware,
   getAdminAnalytics
+);
+
+router.get(
+  "/feedback",
+  authMiddleware,
+  adminMiddleware,
+  getAdminFeedback
+);
+
+router.patch(
+  "/feedback/:id/status",
+  authMiddleware,
+  adminMiddleware,
+  updateFeedbackStatus
 );
 
 module.exports = router;

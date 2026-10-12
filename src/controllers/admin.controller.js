@@ -1,6 +1,7 @@
 const User = require("../models/user.model");
 const Repository = require("../models/repository.model");
 const CodeFile = require("../models/codefile.model");
+const Feedback = require("../models/feedback.model");
 
 const getAdminStats = async (req, res) => {
     try {
@@ -316,10 +317,167 @@ const getAdminAnalytics = async (req, res) => {
   }
 };
 
+const getAdminFeedback = async (req, res) => {
+  try {
+    const {
+      limit = "30",
+      type,
+      status,
+    } = req.query;
+
+    const filter = {};
+
+    // Optional filter: feedback or issue
+    if (type) {
+      if (!["feedback", "issue"].includes(type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid type. Use feedback or issue.",
+        });
+      }
+
+      filter.type = type;
+    }
+
+    // Optional filter: submission status
+    if (status) {
+      if (!["new", "reviewing", "resolved", "closed"].includes(status)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid status.",
+        });
+      }
+
+      filter.status = status;
+    }
+
+    let feedbackQuery = Feedback.find(filter)
+      .select(
+        "_id userId type category message steps status createdAt updatedAt"
+      )
+      .populate("userId", "_id name email")
+      .sort({ createdAt: -1 });
+
+    if (limit !== "all") {
+      const parsedLimit = Number.parseInt(limit, 10);
+
+      if (
+        !Number.isInteger(parsedLimit) ||
+        parsedLimit < 1 ||
+        parsedLimit > 100
+      ) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be between 1 and 100, or all.",
+        });
+      }
+
+      feedbackQuery = feedbackQuery.limit(parsedLimit);
+    }
+
+    const [feedback, totalFeedback, newFeedback, newIssues] =
+      await Promise.all([
+        feedbackQuery.lean(),
+        Feedback.countDocuments(filter),
+        Feedback.countDocuments({
+          ...filter,
+          type: "feedback",
+          status: "new",
+        }),
+        Feedback.countDocuments({
+          ...filter,
+          type: "issue",
+          status: "new",
+        }),
+      ]);
+
+    return res.status(200).json({
+      success: true,
+      feedback,
+      totalFeedback,
+      showing: feedback.length,
+      summary: {
+        newFeedback,
+        newIssues,
+      },
+    });
+  } catch (error) {
+    console.error("Admin feedback error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch feedback.",
+    });
+  }
+};
+
+const updateFeedbackStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    const allowedStatuses = [
+      "new",
+      "reviewing",
+      "resolved",
+      "closed",
+    ];
+
+    if (!allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid feedback status.",
+      });
+    }
+
+    const feedback = await Feedback.findByIdAndUpdate(
+      id,
+      { $set: { status } },
+      {
+        new: true,
+        runValidators: true,
+      }
+    )
+      .select(
+        "_id userId type category message steps status createdAt updatedAt"
+      )
+      .populate("userId", "_id name email");
+
+    if (!feedback) {
+      return res.status(404).json({
+        success: false,
+        message: "Feedback submission not found.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Feedback status updated successfully.",
+      feedback,
+    });
+  } catch (error) {
+    console.error("Update feedback status error:", error);
+
+    if (error.name === "CastError") {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid feedback ID.",
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Failed to update feedback status.",
+    });
+  }
+};
+
 module.exports = {
     getAdminStats,
     getAdminUsers,
     getAdminRepositories,
     getAdminCodeFiles,
     getAdminAnalytics,
+    getAdminFeedback,
+    updateFeedbackStatus,
 };
