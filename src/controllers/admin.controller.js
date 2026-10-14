@@ -2,6 +2,9 @@ const User = require("../models/user.model");
 const Repository = require("../models/repository.model");
 const CodeFile = require("../models/codefile.model");
 const Feedback = require("../models/feedback.model");
+const {
+  sendTemplateEmail,
+} = require("../services/email.service");
 
 const getAdminStats = async (req, res) => {
     try {
@@ -430,6 +433,19 @@ const updateFeedbackStatus = async (req, res) => {
       });
     }
 
+    // Get the current feedback before updating its status.
+    const existingFeedback = await Feedback.findById(id);
+
+    if (!existingFeedback) {
+      return res.status(404).json({
+        success: false,
+        message: "Feedback submission not found.",
+      });
+    }
+
+    const previousStatus = existingFeedback.status;
+
+    // Update the feedback status and retrieve the reporting user.
     const feedback = await Feedback.findByIdAndUpdate(
       id,
       { $set: { status } },
@@ -443,11 +459,49 @@ const updateFeedbackStatus = async (req, res) => {
       )
       .populate("userId", "_id name email");
 
-    if (!feedback) {
-      return res.status(404).json({
-        success: false,
-        message: "Feedback submission not found.",
-      });
+    // Send an email only when an issue becomes resolved.
+    if (
+      feedback.type === "issue" &&
+      previousStatus !== "resolved" &&
+      status === "resolved"
+    ) {
+      try {
+        const user = feedback.userId;
+
+        if (!user || !user.email) {
+          throw new Error(
+            "Reporting user or email address not found."
+          );
+        }
+
+        const templateId =
+          process.env.RESEND_ISSUE_RESOLVED_TEMPLATE_ID;
+
+        if (!templateId) {
+          throw new Error(
+            "RESEND_ISSUE_RESOLVED_TEMPLATE_ID is not configured."
+          );
+        }
+
+        await sendTemplateEmail({
+          to: user.email,
+          templateId,
+          variables: {
+            username: user.name || "there",
+            issueMessage: feedback.message,
+          },
+        });
+
+        console.log(
+          `Issue resolution email sent to ${user.email}`
+        );
+      } catch (emailError) {
+        // Do not undo the status update if email sending fails.
+        console.error(
+          "Failed to send issue resolution email:",
+          emailError.message
+        );
+      }
     }
 
     return res.status(200).json({

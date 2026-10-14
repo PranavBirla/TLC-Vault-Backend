@@ -212,8 +212,50 @@ const sendPasswordResetEmail = async ({ name, email, token }) => {
   });
 };
 
+const sendTemplateEmail = async ({
+  to,
+  templateId,
+  variables,
+}) => {
+  const apiKey = getRequiredEnv("RESEND_API_KEY");
+  const from = getRequiredEnv("RESEND_FROM_EMAIL");
+
+  if (!templateId) {
+    throw new Error("Resend template ID is not configured");
+  }
+
+  const response = await fetch(RESEND_API_URL, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from,
+      to: [to],
+      template: {
+        id: templateId,
+        variables,
+      },
+    }),
+  });
+
+  if (!response.ok) {
+    const body = await response.json().catch(() => ({}));
+
+    throw new Error(
+      `Resend template email failed (${response.status}): ${
+        body?.message || "Unknown error"
+      }`
+    );
+  }
+
+  return response.json();
+};
+
 module.exports = {
   sendEmail,
   sendVerificationEmail,
   sendPasswordResetEmail,
+  sendTemplateEmail,
 };
