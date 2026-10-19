@@ -2,6 +2,8 @@ const User = require("../models/user.model");
 const Repository = require("../models/repository.model");
 const CodeFile = require("../models/codefile.model");
 const Feedback = require("../models/feedback.model");
+const UserBadge = require("../models/userBadge.model");
+const { BADGE_DEFINITIONS } = require("../config/badges");
 const {
   sendTemplateEmail,
 } = require("../services/email.service");
@@ -526,6 +528,106 @@ const updateFeedbackStatus = async (req, res) => {
   }
 };
 
+
+const getAdminBadges = async (req, res) => {
+  try {
+    const { badgeKey = "all", search = "", limit = "30" } = req.query;
+    const validBadgeKeys = new Set(BADGE_DEFINITIONS.map((badge) => badge.key));
+
+    if (badgeKey !== "all" && !validBadgeKeys.has(badgeKey)) {
+      return res.status(400).json({
+        success: false,
+        message: "Unknown badge key.",
+      });
+    }
+
+    let awardLimit = null;
+    if (limit !== "all") {
+      awardLimit = Number.parseInt(limit, 10);
+      if (!Number.isInteger(awardLimit) || awardLimit < 1 || awardLimit > 500) {
+        return res.status(400).json({
+          success: false,
+          message: "Limit must be between 1 and 500, or all.",
+        });
+      }
+    }
+
+    const badgeCounts = await UserBadge.aggregate([
+      { $group: { _id: "$badgeKey", count: { $sum: 1 } } },
+    ]);
+    const countMap = new Map(badgeCounts.map((item) => [item._id, item.count]));
+
+    const totalAwards = badgeCounts.reduce((sum, item) => sum + item.count, 0);
+    const totalUsersWithBadges = await UserBadge.distinct("userId");
+
+    const userFilter = {};
+    const searchTerm = String(search).trim();
+    if (searchTerm) {
+      const escaped = searchTerm.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const matchingUsers = await User.find({
+        $or: [
+          { name: { $regex: escaped, $options: "i" } },
+          { email: { $regex: escaped, $options: "i" } },
+        ],
+      }).select("_id").lean();
+      userFilter.userId = { $in: matchingUsers.map((user) => user._id) };
+    }
+
+    const awardFilter = { ...userFilter };
+    if (badgeKey !== "all") awardFilter.badgeKey = badgeKey;
+
+    let awardsQuery = UserBadge.find(awardFilter)
+      .select("_id userId badgeKey unlockedAt")
+      .populate("userId", "_id name email role")
+      .sort({ unlockedAt: -1 });
+
+    if (awardLimit !== null) awardsQuery = awardsQuery.limit(awardLimit);
+
+    const [awards, filteredTotal] = await Promise.all([
+      awardsQuery.lean(),
+      UserBadge.countDocuments(awardFilter),
+    ]);
+
+    const visibleAwards = awards.filter((award) => award.userId);
+
+    return res.status(200).json({
+      success: true,
+      summary: {
+        totalBadges: BADGE_DEFINITIONS.length,
+        totalAwards,
+        usersWithBadges: totalUsersWithBadges.length,
+      },
+      badges: BADGE_DEFINITIONS
+        .slice()
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+        .map((badge) => ({
+          ...badge,
+          earnedCount: countMap.get(badge.key) || 0,
+        })),
+      awards: visibleAwards.map((award) => {
+        const definition = BADGE_DEFINITIONS.find((badge) => badge.key === award.badgeKey);
+        return {
+          _id: award._id,
+          badgeKey: award.badgeKey,
+          badgeName: definition?.name || award.badgeKey,
+          tier: definition?.tier || "unknown",
+          category: definition?.category || "unknown",
+          unlockedAt: award.unlockedAt,
+          user: award.userId,
+        };
+      }),
+      totalMatchingAwards: filteredTotal,
+      showing: visibleAwards.length,
+    });
+  } catch (error) {
+    console.error("Admin badges error:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to fetch badge activity.",
+    });
+  }
+};
+
 module.exports = {
     getAdminStats,
     getAdminUsers,
@@ -534,4 +636,5 @@ module.exports = {
     getAdminAnalytics,
     getAdminFeedback,
     updateFeedbackStatus,
+    getAdminBadges,
 };

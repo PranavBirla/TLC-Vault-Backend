@@ -11,7 +11,8 @@ const { getAdminStats,
   getAdminCodeFiles,
   getAdminAnalytics,
   getAdminFeedback,
-  updateFeedbackStatus
+  updateFeedbackStatus,
+  getAdminBadges
 } = require("../controllers/admin.controller");
 
 router.get(
@@ -61,6 +62,13 @@ router.patch(
   authMiddleware,
   adminMiddleware,
   updateFeedbackStatus
+);
+
+router.get(
+  "/badges",
+  authMiddleware,
+  adminMiddleware,
+  getAdminBadges
 );
 
 module.exports = router;
