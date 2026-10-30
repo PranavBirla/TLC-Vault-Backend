@@ -556,9 +556,69 @@ const getMe = async (req, res) => {
 };
 
 
+// UPDATE USER PROFILE
+const updateProfile = async (req, res) => {
+  try {
+    const { name } = req.body;
+
+    // Validate input
+    if (typeof name !== "string" || !name.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Name is required.",
+      });
+    }
+
+    const trimmedName = name.trim();
+
+    // Validate name length
+    if (trimmedName.length < 2 || trimmedName.length > 50) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must be between 2 and 50 characters.",
+      });
+    }
+
+    // Find authenticated user
+    const user = await User.findById(req.user._id);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found.",
+      });
+    }
+
+    // Update only the name
+    user.name = trimmedName;
+
+    await user.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Profile updated successfully.",
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Update profile error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Something went wrong while updating your profile.",
+    });
+  }
+};
+
+
 module.exports = {
   register,
   login,
+  updateProfile,
   verifyEmail,
   resendVerification,
   forgotPassword,
